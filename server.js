@@ -1,6 +1,7 @@
 import express from 'express'
 import fetch from 'node-fetch'
 import crypto from 'crypto'
+import rateLimit from 'express-rate-limit'
 
 const app = express()
 const port = process.env.PORT || 3000
@@ -8,12 +9,19 @@ const port = process.env.PORT || 3000
 const baseUrl = 'https://raw.githubusercontent.com/bjalalsjzbslalqoqueeyhskaambpqo/kajsbsba--hahsjsv-kakwbs_jaks_082hgg927hsksoLol-Noobbro9877272jshshsbsjsURLwww.noob.com.Obfuscate/refs/heads/main/'
 const tempStorage = new Map()
 
+const limiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 100
+})
+
+app.use(limiter)
+
 function generateRandomCode(length = 32) {
   return crypto.randomBytes(length).toString('base64').replace(/[/+=]/g, '')
 }
 
 function createTempUrl(code) {
-  return `https://${process.env.RAILWAY_STATIC_URL || 'https://ww-production.up.railway.app'}/${code}`
+  return `https://${process.env.RAILWAY_STATIC_URL || 'https://secur.api-x.site'}/${code}`
 }
 
 async function getGithubContent(filename) {
@@ -66,7 +74,16 @@ async function createRedirectChain(realContent) {
   return urls[0]
 }
 
+function isRobloxRequest(req) {
+  const userAgent = req.get('User-Agent')
+  return userAgent && userAgent.includes('Roblox')
+}
+
 app.get('/:filename', async (req, res) => {
+  if (!isRobloxRequest(req)) {
+    return res.status(403).send('Acceso denegado')
+  }
+
   try {
     const content = await getGithubContent(req.params.filename)
     const firstUrl = await createRedirectChain(content)
@@ -77,12 +94,20 @@ app.get('/:filename', async (req, res) => {
 })
 
 app.get('/:code', (req, res) => {
+  if (!isRobloxRequest(req)) {
+    return res.status(403).send('Acceso denegado')
+  }
+
   const content = tempStorage.get(req.params.code)
   if (content) {
     res.send(content)
   } else {
     res.status(403).send('Acceso denegado')
   }
+})
+
+app.use((req, res) => {
+  res.status(404).send('Acceso denegado')
 })
 
 app.listen(port, () => {
