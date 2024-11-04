@@ -13,7 +13,7 @@ function generateRandomCode(length = 32) {
 }
 
 function createTempUrl(code) {
-  return `https://${process.env.RAILWAY_STATIC_URL || 'localhost:3000'}/${code}`
+  return `https://${process.env.RAILWAY_STATIC_URL || 'https://ww-production.up.railway.app'}/${code}`
 }
 
 async function getGithubContent(filename) {
