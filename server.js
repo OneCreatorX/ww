@@ -4,25 +4,31 @@ import crypto from 'crypto'
 import rateLimit from 'express-rate-limit'
 
 const app = express()
-const port = process.env.PORT || 3000
+const port = process.env.PORT || 8080
 
 const baseUrl = 'https://raw.githubusercontent.com/bjalalsjzbslalqoqueeyhskaambpqo/kajsbsba--hahsjsv-kakwbs_jaks_082hgg927hsksoLol-Noobbro9877272jshshsbsjsURLwww.noob.com.Obfuscate/refs/heads/main/'
 const tempStorage = new Map()
 const userTasks = new Map()
 
+// Configurar Express para confiar en el proxy
+app.set('trust proxy', 1)
+
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 100
+  max: 100,
+  standardHeaders: true,
+  legacyHeaders: false,
+  keyGenerator: (req) => req.ip
 })
 
 app.use(limiter)
 
 function generateRandomCode(length = 32) {
-  return crypto.randomBytes(length).toString('base64').replace(/[/+=]/g, '')
+  return crypto.randomBytes(length).toString('hex').slice(0, length)
 }
 
 function createTempUrl(code) {
-  return `https://${process.env.RAILWAY_STATIC_URL || 'https://secur.api-x.site'}/${code}`
+  return `https://${process.env.RAILWAY_STATIC_URL || 'localhost:8080'}/${code}`
 }
 
 async function getGithubContent(filename) {
@@ -40,10 +46,6 @@ async function getGithubContent(filename) {
     console.error(`Error fetching ${filename}: ${error.message}`)
     throw new Error('Archivo no encontrado')
   }
-}
-
-function generateDecoyCode() {
-  return `print("Señuelo ${generateRandomCode(8)}")`
 }
 
 function splitContent(content, parts = 20) {
@@ -71,12 +73,12 @@ async function createNextCheckpoint(userIp, step, totalSteps, content) {
     contentParts.forEach((part, index) => {
       const partCode = new URL(contentUrls[index]).pathname.slice(1)
       tempStorage.set(partCode, part)
-      setTimeout(() => tempStorage.delete(partCode), 4000)
+      setTimeout(() => tempStorage.delete(partCode), 10000)
     })
     tempStorage.set(code, createLoader(contentUrls))
   }
   
-  setTimeout(() => tempStorage.delete(code), 4000)
+  setTimeout(() => tempStorage.delete(code), 10000)
   
   userTasks.get(userIp).currentStep = step + 1
   return url
