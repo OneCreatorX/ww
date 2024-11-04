@@ -26,12 +26,15 @@ function createTempUrl(code) {
 
 async function getGithubContent(filename) {
   const encodedFilename = encodeURIComponent(filename)
+  console.log(`Fetching content from GitHub: ${baseUrl}${encodedFilename}.lua`)
   const response = await fetch(`${baseUrl}${encodedFilename}.lua`)
   if (!response.ok) {
     console.error(`Error fetching ${filename}: ${response.status} ${response.statusText}`)
     throw new Error('Archivo no encontrado')
   }
-  return response.text()
+  const content = await response.text()
+  console.log(`Content fetched successfully. Length: ${content.length}`)
+  return content
 }
 
 function generateDecoyCode() {
@@ -55,24 +58,37 @@ async function createRedirectChain(realContent) {
   const codes = Array(50).fill().map(() => generateRandomCode())
   const urls = codes.map(createTempUrl)
   
+  console.log('Creating redirect chain')
   for (let i = 0; i < 50; i++) {
     if (i === 30) {
       const contentParts = splitContent(realContent)
       const contentUrls = contentParts.map(() => createTempUrl(generateRandomCode()))
       contentParts.forEach((part, index) => {
-        tempStorage.set(new URL(contentUrls[index]).pathname.slice(1), part)
-        setTimeout(() => tempStorage.delete(new URL(contentUrls[index]).pathname.slice(1)), 2000)
+        const code = new URL(contentUrls[index]).pathname.slice(1)
+        tempStorage.set(code, part)
+        console.log(`Setting content part ${index + 1}. Code: ${code}`)
+        setTimeout(() => {
+          tempStorage.delete(code)
+          console.log(`Deleted content part ${index + 1}. Code: ${code}`)
+        }, 2000)
       })
       tempStorage.set(codes[i], createLoader(contentUrls))
+      console.log(`Setting loader. Code: ${codes[i]}`)
     } else if (i === 49) {
       tempStorage.set(codes[i], generateDecoyCode())
+      console.log(`Setting final decoy. Code: ${codes[i]}`)
     } else {
       tempStorage.set(codes[i], `loadstring(game:HttpGet("${urls[i+1]}"))()`)
+      console.log(`Setting redirect ${i + 1}. Code: ${codes[i]}`)
     }
     
-    setTimeout(() => tempStorage.delete(codes[i]), 2000)
+    setTimeout(() => {
+      tempStorage.delete(codes[i])
+      console.log(`Deleted redirect ${i + 1}. Code: ${codes[i]}`)
+    }, 2000)
   }
   
+  console.log(`Redirect chain created. First URL: ${urls[0]}`)
   return urls[0]
 }
 
@@ -82,13 +98,16 @@ function isRobloxRequest(req) {
 }
 
 app.get('/:filename', async (req, res) => {
+  console.log(`Received request for filename: ${req.params.filename}`)
   if (!isRobloxRequest(req)) {
+    console.log('Request denied: Not from Roblox')
     return res.status(403).send('Acceso denegado')
   }
 
   try {
     const content = await getGithubContent(req.params.filename)
     const firstUrl = await createRedirectChain(content)
+    console.log(`Sending first URL: ${firstUrl}`)
     res.send(`loadstring(game:HttpGet("${firstUrl}"))()`)
   } catch (error) {
     console.error(`Error en /:filename: ${error.message}`)
@@ -97,19 +116,26 @@ app.get('/:filename', async (req, res) => {
 })
 
 app.get('/:code', (req, res) => {
+  console.log(`Received request for code: ${req.params.code}`)
   if (!isRobloxRequest(req)) {
+    console.log('Request denied: Not from Roblox')
     return res.status(403).send('Acceso denegado')
   }
 
   const content = tempStorage.get(req.params.code)
   if (content) {
+    console.log(`Content found for code: ${req.params.code}`)
     res.send(content)
+    tempStorage.delete(req.params.code)
+    console.log(`Deleted content after use. Code: ${req.params.code}`)
   } else {
+    console.log(`Content not found for code: ${req.params.code}`)
     res.status(403).send('Acceso denegado')
   }
 })
 
 app.use((req, res) => {
+  console.log(`404 for path: ${req.path}`)
   res.status(404).send('Acceso denegado')
 })
 
