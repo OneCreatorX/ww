@@ -10,7 +10,6 @@ const baseUrl = 'https://raw.githubusercontent.com/bjalalsjzbslalqoqueeyhskaambp
 const tempStorage = new Map()
 const userTasks = new Map()
 
-// Configurar Express para confiar en el proxy
 app.set('trust proxy', 1)
 
 const limiter = rateLimit({
@@ -137,6 +136,23 @@ app.use((req, res) => {
   res.status(404).send('Acceso denegado')
 })
 
-app.listen(port, () => {
+const server = app.listen(port, () => {
   console.log(`Servidor ejecutándose en el puerto ${port}`)
+})
+
+// Manejo de señales de terminación
+process.on('SIGTERM', () => {
+  console.log('Recibida señal SIGTERM. Cerrando el servidor...')
+  server.close(() => {
+    console.log('Servidor cerrado.')
+    process.exit(0)
+  })
+})
+
+process.on('SIGINT', () => {
+  console.log('Recibida señal SIGINT. Cerrando el servidor...')
+  server.close(() => {
+    console.log('Servidor cerrado.')
+    process.exit(0)
+  })
 })
