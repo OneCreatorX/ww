@@ -26,7 +26,7 @@ function generateRandomCode(length = 32) {
 }
 
 function createTempUrl(code) {
-  return `https://${process.env.RAILWAY_STATIC_URL || 'localhost:8080'}/${code}`
+  return `https://${process.env.RAILWAY_STATIC_URL || 'https://secur.api-x.site'}/${code}`
 }
 
 async function getGithubContent(filename) {
@@ -72,6 +72,15 @@ app.get('/:filename', async (req, res) => {
     return res.status(403).send('Acceso denegado')
   }
 
+  // Check if the request is for a content part
+  if (tempStorage.has(req.params.filename)) {
+    const content = tempStorage.get(req.params.filename)
+    console.log(`Content part found for code: ${req.params.filename}`)
+    res.send(content)
+    tempStorage.delete(req.params.filename) // Remove after sending
+    return
+  }
+
   try {
     const content = await getGithubContent(req.params.filename)
     const contentParts = splitContent(content)
@@ -80,7 +89,7 @@ app.get('/:filename', async (req, res) => {
     contentParts.forEach((part, index) => {
       const partCode = new URL(contentUrls[index]).pathname.slice(1)
       tempStorage.set(partCode, part)
-      setTimeout(() => tempStorage.delete(partCode), 3000) // 30 segundos de tiempo de vida
+      setTimeout(() => tempStorage.delete(partCode), 5000) // 60 segundos de tiempo de vida
     })
     
     const loader = createLoader(contentUrls)
@@ -88,18 +97,6 @@ app.get('/:filename', async (req, res) => {
     res.send(loader)
   } catch (error) {
     console.error(`Error en /:filename: ${error.message}`)
-    res.status(404).send('Acceso denegado')
-  }
-})
-
-app.get('/:code', (req, res) => {
-  const content = tempStorage.get(req.params.code)
-  if (content) {
-    console.log(`Content found for code: ${req.params.code}`)
-    res.send(content)
-    tempStorage.delete(req.params.code) // Eliminar después de enviar
-  } else {
-    console.log(`Content not found for code: ${req.params.code}`)
     res.status(404).send('Acceso denegado')
   }
 })
