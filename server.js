@@ -25,8 +25,10 @@ function createTempUrl(code) {
 }
 
 async function getGithubContent(filename) {
-  const response = await fetch(`${baseUrl}${filename}.lua`)
+  const encodedFilename = encodeURIComponent(filename)
+  const response = await fetch(`${baseUrl}${encodedFilename}.lua`)
   if (!response.ok) {
+    console.error(`Error fetching ${filename}: ${response.status} ${response.statusText}`)
     throw new Error('Archivo no encontrado')
   }
   return response.text()
@@ -89,6 +91,7 @@ app.get('/:filename', async (req, res) => {
     const firstUrl = await createRedirectChain(content)
     res.send(`loadstring(game:HttpGet("${firstUrl}"))()`)
   } catch (error) {
+    console.error(`Error en /:filename: ${error.message}`)
     res.status(404).send('Acceso denegado')
   }
 })
