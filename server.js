@@ -89,7 +89,7 @@ app.get('/:filename', async (req, res) => {
     contentParts.forEach((part, index) => {
       const partCode = new URL(contentUrls[index]).pathname.slice(1)
       tempStorage.set(partCode, part)
-      setTimeout(() => tempStorage.delete(partCode), 5000) // 60 segundos de tiempo de vida
+      setTimeout(() => tempStorage.delete(partCode), 50000) // 60 segundos de tiempo de vida
     })
     
     const loader = createLoader(contentUrls)
