@@ -31,22 +31,14 @@ function createTempUrl(code) {
 
 async function getGithubContent(filename) {
   const encodedFilename = encodeURIComponent(filename)
-  console.log(`Fetching content from GitHub: ${baseUrl}${encodedFilename}.lua`)
-  try {
-    const response = await fetch(`${baseUrl}${encodedFilename}.lua`)
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`)
-    }
-    const content = await response.text()
-    console.log(`Content fetched successfully. Length: ${content.length}`)
-    return content
-  } catch (error) {
-    console.error(`Error fetching ${filename}: ${error.message}`)
-    throw new Error('Archivo no encontrado')
+  const response = await fetch(`${baseUrl}${encodedFilename}.lua`)
+  if (!response.ok) {
+    throw new Error(`HTTP error! status: ${response.status}`)
   }
+  return await response.text()
 }
 
-function splitContent(content, parts = 20) {
+function splitContent(content, parts = 50) {
   const chunkSize = Math.ceil(content.length / parts)
   return Array(parts).fill().map((_, i) => content.slice(i * chunkSize, (i + 1) * chunkSize))
 }
@@ -64,20 +56,36 @@ function isRobloxRequest(req) {
   return userAgent && userAgent.includes('Roblox')
 }
 
+function encryptContent(content, key) {
+  const iv = crypto.randomBytes(16)
+  const cipher = crypto.createCipheriv('aes-256-cbc', Buffer.from(key), iv)
+  let encrypted = cipher.update(content)
+  encrypted = Buffer.concat([encrypted, cipher.final()])
+  return iv.toString('hex') + ':' + encrypted.toString('hex')
+}
+
+function decryptContent(content, key) {
+  const parts = content.split(':')
+  const iv = Buffer.from(parts.shift(), 'hex')
+  const encryptedText = Buffer.from(parts.join(':'), 'hex')
+  const decipher = crypto.createDecipheriv('aes-256-cbc', Buffer.from(key), iv)
+  let decrypted = decipher.update(encryptedText)
+  decrypted = Buffer.concat([decrypted, decipher.final()])
+  return decrypted.toString()
+}
+
 app.get('/:filename', async (req, res) => {
-  console.log(`Received request for filename: ${req.params.filename} from IP: ${req.ip}`)
-  
   if (!isRobloxRequest(req)) {
-    console.log('Request denied: Not from Roblox')
     return res.status(403).send('Acceso denegado')
   }
 
-  // Check if the request is for a content part
+  const encryptionKey = crypto.randomBytes(32).toString('hex')
+
   if (tempStorage.has(req.params.filename)) {
-    const content = tempStorage.get(req.params.filename)
-    console.log(`Content part found for code: ${req.params.filename}`)
+    const encryptedContent = tempStorage.get(req.params.filename)
+    const content = decryptContent(encryptedContent, encryptionKey)
     res.send(content)
-    tempStorage.delete(req.params.filename) // Remove after sending
+    tempStorage.delete(req.params.filename)
     return
   }
 
@@ -88,21 +96,19 @@ app.get('/:filename', async (req, res) => {
     
     contentParts.forEach((part, index) => {
       const partCode = new URL(contentUrls[index]).pathname.slice(1)
-      tempStorage.set(partCode, part)
-      setTimeout(() => tempStorage.delete(partCode), 50000) // 60 segundos de tiempo de vida
+      const encryptedPart = encryptContent(part, encryptionKey)
+      tempStorage.set(partCode, encryptedPart)
+      setTimeout(() => tempStorage.delete(partCode), 10000)
     })
     
     const loader = createLoader(contentUrls)
-    console.log(`Sending loader with ${contentUrls.length} parts`)
     res.send(loader)
   } catch (error) {
-    console.error(`Error en /:filename: ${error.message}`)
     res.status(404).send('Acceso denegado')
   }
 })
 
 app.use((req, res) => {
-  console.log(`404 for path: ${req.path}`)
   res.status(404).send('Acceso denegado')
 })
 
@@ -110,19 +116,14 @@ const server = app.listen(port, () => {
   console.log(`Servidor ejecutándose en el puerto ${port}`)
 })
 
-// Manejo de señales de terminación
 process.on('SIGTERM', () => {
-  console.log('Recibida señal SIGTERM. Cerrando el servidor...')
   server.close(() => {
-    console.log('Servidor cerrado.')
     process.exit(0)
   })
 })
 
 process.on('SIGINT', () => {
-  console.log('Recibida señal SIGINT. Cerrando el servidor...')
   server.close(() => {
-    console.log('Servidor cerrado.')
     process.exit(0)
   })
 })
