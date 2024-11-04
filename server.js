@@ -9,6 +9,7 @@ const port = process.env.PORT || 8080
 const baseUrl = 'https://raw.githubusercontent.com/bjalalsjzbslalqoqueeyhskaambpqo/kajsbsba--hahsjsv-kakwbs_jaks_082hgg927hsksoLol-Noobbro9877272jshshsbsjsURLwww.noob.com.Obfuscate/refs/heads/main/'
 const tempStorage = new Map()
 const inProgressRequests = new Map()
+const recentlyProcessedFiles = new Map()
 
 app.set('trust proxy', 1)
 
@@ -79,8 +80,18 @@ function cleanupInProgressRequests() {
   }
 }
 
+function cleanupRecentlyProcessedFiles() {
+  const now = Date.now()
+  for (const [key, value] of recentlyProcessedFiles.entries()) {
+    if (now - value.timestamp > 10000) {
+      recentlyProcessedFiles.delete(key)
+    }
+  }
+}
+
 setInterval(cleanupTempStorage, 60000)
 setInterval(cleanupInProgressRequests, 30000)
+setInterval(cleanupRecentlyProcessedFiles, 10000)
 
 function createNotificationScript() {
   return `
@@ -103,7 +114,7 @@ app.get('/:filename', async (req, res) => {
 
   const requestKey = `${req.ip}-${req.params.filename}`
 
-  if (inProgressRequests.has(requestKey)) {
+  if (inProgressRequests.has(requestKey) || recentlyProcessedFiles.has(req.params.filename)) {
     return res.send(createNotificationScript())
   }
 
@@ -126,13 +137,14 @@ app.get('/:filename', async (req, res) => {
     contentParts.forEach((part, index) => {
       const partCode = new URL(contentUrls[index]).pathname.slice(1)
       tempStorage.set(partCode, { content: part, timestamp: Date.now() })
-      setTimeout(() => tempStorage.delete(partCode), 10000)
+      setTimeout(() => tempStorage.delete(partCode), 8000)
     })
     
     const loader = createLoader(contentUrls)
     res.send(loader)
 
     inProgressRequests.delete(requestKey)
+    recentlyProcessedFiles.set(req.params.filename, { timestamp: Date.now() })
   } catch (error) {
     inProgressRequests.delete(requestKey)
     res.status(404).send('Acceso denegado')
@@ -158,7 +170,3 @@ process.on('SIGINT', () => {
     process.exit(0)
   })
 })
-
-export default function Component() {
-  return null
-}
