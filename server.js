@@ -28,14 +28,18 @@ function createTempUrl(code) {
 async function getGithubContent(filename) {
   const encodedFilename = encodeURIComponent(filename)
   console.log(`Fetching content from GitHub: ${baseUrl}${encodedFilename}.lua`)
-  const response = await fetch(`${baseUrl}${encodedFilename}.lua`)
-  if (!response.ok) {
-    console.error(`Error fetching ${filename}: ${response.status} ${response.statusText}`)
+  try {
+    const response = await fetch(`${baseUrl}${encodedFilename}.lua`)
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`)
+    }
+    const content = await response.text()
+    console.log(`Content fetched successfully. Length: ${content.length}`)
+    return content
+  } catch (error) {
+    console.error(`Error fetching ${filename}: ${error.message}`)
     throw new Error('Archivo no encontrado')
   }
-  const content = await response.text()
-  console.log(`Content fetched successfully. Length: ${content.length}`)
-  return content
 }
 
 function generateDecoyCode() {
@@ -70,7 +74,7 @@ async function createDecoyChain(realContent, originalFilename) {
       tempStorage.delete(codes[i])
       codeOrigins.delete(codes[i])
       console.log(`Deleted decoy ${i + 1}. Code: ${codes[i]}`)
-    }, 4000)
+    }, 10000)
   }
   
   const contentParts = splitContent(realContent)
@@ -84,7 +88,7 @@ async function createDecoyChain(realContent, originalFilename) {
       tempStorage.delete(code)
       codeOrigins.delete(code)
       console.log(`Deleted content part ${index + 1}. Code: ${code}`)
-    }, 4000)
+    }, 10000)
   })
   
   tempStorage.set(codes[decoyCount], createLoader(contentUrls))
@@ -94,7 +98,7 @@ async function createDecoyChain(realContent, originalFilename) {
     tempStorage.delete(codes[decoyCount])
     codeOrigins.delete(codes[decoyCount])
     console.log(`Deleted loader. Code: ${codes[decoyCount]}`)
-  }, 4000)
+  }, 10000)
   
   codeOrigins.set(codes[0], originalFilename)
   
