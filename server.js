@@ -8,6 +8,7 @@ const port = process.env.PORT || 8080
 
 const baseUrl = 'https://raw.githubusercontent.com/bjalalsjzbslalqoqueeyhskaambpqo/kajsbsba--hahsjsv-kakwbs_jaks_082hgg927hsksoLol-Noobbro9877272jshshsbsjsURLwww.noob.com.Obfuscate/refs/heads/main/'
 const tempStorage = new Map()
+const inProgressRequests = new Map()
 
 app.set('trust proxy', 1)
 
@@ -69,11 +70,41 @@ function cleanupTempStorage() {
   }
 }
 
+function cleanupInProgressRequests() {
+  const now = Date.now()
+  for (const [key, value] of inProgressRequests.entries()) {
+    if (now - value.timestamp > 30000) {
+      inProgressRequests.delete(key)
+    }
+  }
+}
+
 setInterval(cleanupTempStorage, 60000)
+setInterval(cleanupInProgressRequests, 30000)
+
+function createNotificationScript() {
+  return `
+    local StarterGui = game:GetService("StarterGui")
+    local function notify()
+      StarterGui:SetCore("SendNotification", {
+        Title = "Procesando",
+        Text = "Se está procesando una solicitud anterior. Por favor, espere unos segundos.",
+        Duration = 5
+      })
+    end
+    notify()
+  `
+}
 
 app.get('/:filename', async (req, res) => {
   if (!isRobloxRequest(req)) {
     return res.status(403).send('Acceso denegado')
+  }
+
+  const requestKey = `${req.ip}-${req.params.filename}`
+
+  if (inProgressRequests.has(requestKey)) {
+    return res.send(createNotificationScript())
   }
 
   if (tempStorage.has(req.params.filename)) {
@@ -86,6 +117,8 @@ app.get('/:filename', async (req, res) => {
   }
 
   try {
+    inProgressRequests.set(requestKey, { timestamp: Date.now() })
+
     const content = await getGithubContent(req.params.filename)
     const contentParts = splitContent(content)
     const contentUrls = contentParts.map(() => createTempUrl(generateRandomCode()))
@@ -93,12 +126,15 @@ app.get('/:filename', async (req, res) => {
     contentParts.forEach((part, index) => {
       const partCode = new URL(contentUrls[index]).pathname.slice(1)
       tempStorage.set(partCode, { content: part, timestamp: Date.now() })
-      setTimeout(() => tempStorage.delete(partCode), 7000)
+      setTimeout(() => tempStorage.delete(partCode), 10000)
     })
     
     const loader = createLoader(contentUrls)
     res.send(loader)
+
+    inProgressRequests.delete(requestKey)
   } catch (error) {
+    inProgressRequests.delete(requestKey)
     res.status(404).send('Acceso denegado')
   }
 })
@@ -122,3 +158,7 @@ process.on('SIGINT', () => {
     process.exit(0)
   })
 })
+
+export default function Component() {
+  return null
+}
